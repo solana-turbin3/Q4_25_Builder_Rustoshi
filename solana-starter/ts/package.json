@@ -27,7 +27,7 @@
     "vault_close": "ts-node ./cluster1/vault_close.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "0.31.1",
+    "@coral-xyz/anchor": "^0.29.0",
     "@metaplex-foundation/mpl-token-metadata": "3.4.0",
     "@metaplex-foundation/umi": "^1.2.0",
     "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
