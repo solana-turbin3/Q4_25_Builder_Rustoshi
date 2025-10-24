@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AnchorAmmQ425 } from "../target/types/anchor_amm_q4_25";
-import { Account, createMint, getAssociatedTokenAddress, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { Account, createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, getAccount, transfer } from '@solana/spl-token'
 import { BN } from "bn.js";
 import { ASSOCIATED_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
 import { Keypair, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
@@ -55,11 +55,13 @@ describe("AMM Instruction Tests", () => {
 
   let initializer_ata_x: Account;
   let initializer_ata_y: Account;
-  let initializer_ata_lp = getAta(initializer.publicKey, mint_lp)[0];
+  const [initializer_ata_lp] = getAta(initializer.publicKey, mint_lp);
 
   let user1_ata_x: Account;
   let user1_ata_y: Account;
-  let user1_ata_lp = getAta(user1.publicKey, mint_lp)[0];
+  const [user1_ata_lp] = getAta(user1.publicKey, mint_lp);
+
+  console.log("User1", user1.publicKey.toBase58());
 
 
   before("Setup Accounts", async () => {
@@ -88,7 +90,6 @@ describe("AMM Instruction Tests", () => {
     } catch (e) {
       console.log(e);
     }
-
   });
 
   describe("Initialize Pool", () => {
@@ -121,7 +122,7 @@ describe("AMM Instruction Tests", () => {
       assert.equal(mint_y.publicKey.toBase58(), configAccount.mintY.toBase58());
       assert.equal(false, configAccount.locked);
     });
-  })
+  });
 
   describe("Deposit tokens", () => {
     it("Initial Deposit", async () => {
@@ -158,8 +159,8 @@ describe("AMM Instruction Tests", () => {
       );
 
       const amount = new BN(500_000 * 10 ** 6);
-      const max_x = new BN(1_000_000 * 10 ** 6);
-      const max_y = new BN(500 * 10 ** 6);
+      const max_x = new BN(500_000 * 10 ** 6);
+      const max_y = new BN(300_000 * 10 ** 6);
 
       await program.methods.deposit(
         amount,
@@ -182,6 +183,14 @@ describe("AMM Instruction Tests", () => {
       })
         .signers([initializer])
         .rpc();
+
+      const initializer_lp_ata = await getAccount(
+        provider.connection,
+        initializer_ata_lp
+      );
+
+      assert(initializer_lp_ata.amount >= amount.toNumber(), "LP amount is less than expected");
+        
     });
 
     it("Second Deposit", async () => {
@@ -275,7 +284,43 @@ describe("AMM Instruction Tests", () => {
           assert.equal(e.error.errorCode.code, "InvalidAmount");
         });
     });
-  })
+  });
+
+  describe("Swap", () => {
+    it("Swap Token X for Y", async () => {
+      const amount = new BN(10_000 * 10 ** 6);
+      const min = new BN(5_000 * 10 ** 6);
+
+      await transfer(
+        provider.connection,
+        initializer,
+        initializer_ata_x.address,
+        user1_ata_x.address,
+        initializer.publicKey,
+        amount.toNumber(),
+      );
+
+      await program.methods.swap(
+        true,
+        amount,
+        min,
+      ).accountsStrict({
+        mintX: mint_x.publicKey,
+        mintY: mint_y.publicKey,
+        user: user1.publicKey,
+        userX: user1_ata_x.address,
+        userY: user1_ata_y.address,
+        vaultX: vault_x,
+        vaultY: vault_y,
+        config: config,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+        .signers([user1])
+        .rpc();
+    });
+  });
 
 });
 
