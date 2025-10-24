@@ -54,12 +54,12 @@ impl<'info> Swap<'info> {
         require!(amount != 0, AmmError::InvalidAmount);
 
         let amount_out = match is_x {
-            true => ConstantProduct::delta_x_from_y_swap_amount(
+            true => ConstantProduct::delta_y_from_x_swap_amount(
                 self.vault_x.amount,
                 self.vault_y.amount,
                 amount,
             ).unwrap(),
-            false => ConstantProduct::delta_y_from_x_swap_amount(
+            false => ConstantProduct::delta_x_from_y_swap_amount(
                 self.vault_x.amount,
                 self.vault_y.amount,
                 amount,
@@ -68,8 +68,10 @@ impl<'info> Swap<'info> {
 
         require!(amount_out >= min, AmmError::SlippageExceeded);
 
-        self.withdraw_tokens(is_x, amount_out)?;
-        self.deposit_tokens(!is_x, amount_out)?;
+        // First deposit the input tokens from user to vault
+        self.deposit_tokens(is_x, amount)?;
+        // Then withdraw the output tokens from vault to user
+        self.withdraw_tokens(!is_x, amount_out)?;
         Ok(())
     }
 

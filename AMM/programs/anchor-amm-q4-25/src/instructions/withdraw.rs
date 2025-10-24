@@ -82,7 +82,7 @@ impl<'info> Withdraw<'info> {
                     self.vault_y.amount,
                     self.mint_lp.supply,
                     amount,
-                    6,
+                    self.mint_x.decimals.into(),
                 )
                 .unwrap();
                 (amounts.x, amounts.y)
@@ -126,18 +126,15 @@ impl<'info> Withdraw<'info> {
     }
 
     pub fn burn_lp_tokens(&self, amount: u64) -> Result<()> {
-        let config_seed = &self.config.seed.to_le_bytes();
-        let signer_seeds: &[&[&[u8]]] = &[&[b"config", config_seed.as_ref(), &[self.config.config_bump]]];
-
         let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = Burn {
-            authority: self.config.to_account_info(),
-            from: self.user.to_account_info(),
+            authority: self.user.to_account_info(),
+            from: self.user_lp.to_account_info(),
             mint: self.mint_lp.to_account_info()
         };
 
-        let ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+        let ctx = CpiContext::new(cpi_program, cpi_accounts);
 
         burn(ctx, amount)
     }
