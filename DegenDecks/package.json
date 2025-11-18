@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "magic-router-sdk": "^1.0.10"
   }
 }

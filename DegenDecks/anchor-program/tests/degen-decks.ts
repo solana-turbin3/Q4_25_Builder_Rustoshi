@@ -14,6 +14,9 @@ import {
     MAGIC_PROGRAM_ID
 
 } from "@magicblock-labs/ephemeral-rollups-sdk";
+import {
+    getClosestValidator,
+} from "magic-router-sdk"
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import "dotenv/config"
 
@@ -179,10 +182,18 @@ describe("Degen Decks", () => {
     }
 
     async function getCurrentGameState() {
-        return await program.account.game.fetch(game);
+        try {
+            return await program.account.game.fetch(game);
+        } catch (err) {
+            return null;
+        }
     }
     async function getCurrentGameStateER() {
-        return await programEphemeralRollup.account.game.fetch(game);
+        try {
+            return await programEphemeralRollup.account.game.fetch(game);
+        } catch (err) {
+            return null;
+        }
     }
 
     // Cards
@@ -259,6 +270,7 @@ describe("Degen Decks", () => {
     const noPlayers = 3;
     const waitTime = new BN(60);
     let winner: PublicKey;
+    let validatorKey: PublicKey;
 
 
     before(async () => {
@@ -271,9 +283,9 @@ describe("Degen Decks", () => {
         // await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for airdrops
 
         // funder players WSOL accounts with 0.5 SOL
-        await sendSOL(user1.publicKey, user2.publicKey, 0.03 * LAMPORTS_PER_SOL, user1.payer);
-        await sendSOL(user1.publicKey, user3.publicKey, 0.03 * LAMPORTS_PER_SOL, user1.payer);
-
+        await sendSOL(user1.publicKey, user2.publicKey, 0.05 * LAMPORTS_PER_SOL, user1.payer);
+        await sendSOL(user1.publicKey, user3.publicKey, 0.05 * LAMPORTS_PER_SOL, user1.payer);
+        
         // Derive PDAs
         config = findPDA([Buffer.from(CONFIG_SEED, "utf-8")])[0];
         userAta1 = await getOrCreateAssociatedTokenAccount(
@@ -475,27 +487,32 @@ describe("Degen Decks", () => {
             let ataInfo = await getAccount(connection, userAta2.address);
             const ataBalance = Number(ataInfo.amount);
 
-            const tx = await program.methods
-                .joinGame()
-                .accountsStrict({
-                    signer: user2.publicKey,
-                    profile: userProfile2,
-                    game: game,
-                    gameVault: gameVault,
-                    stakeMint: WSOL,
-                    userAta: userAta2.address,
-                    config: config,
-                    oracleQueue: new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh"),
-                    programIdentity: findPDA([Buffer.from("identity", "utf-8")])[0],
-                    vrfProgram: new PublicKey("Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"),
-                    slotHashes: new PublicKey("SysvarS1otHashes111111111111111111111111111"),
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    systemProgram: SystemProgram.programId,
-                })
-                .signers([user2])
-                .rpc();
-            console.log("Join transaction: ", tx);
+            try {
+                const tx = await program.methods
+                    .joinGame()
+                    .accountsStrict({
+                        signer: user2.publicKey,
+                        profile: userProfile2,
+                        game: game,
+                        gameVault: gameVault,
+                        stakeMint: WSOL,
+                        userAta: userAta2.address,
+                        config: config,
+                        oracleQueue: new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh"),
+                        programIdentity: findPDA([Buffer.from("identity", "utf-8")])[0],
+                        vrfProgram: new PublicKey("Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"),
+                        slotHashes: new PublicKey("SysvarS1otHashes111111111111111111111111111"),
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([user2])
+                    .rpc();
+                console.log("Join transaction: ", tx);
+            } catch (error) {
+                console.error("Join transaction failed:", error);
+                throw error;
+            }
 
             gameAccount = await program.account.game.fetch(game);
             ataInfo = await getAccount(connection, userAta2.address);
@@ -512,24 +529,27 @@ describe("Degen Decks", () => {
     describe("> User 2 Exits Game", () => {
         it("User 2 Should Exit game", async () => {
             let gameAccount = await program.account.game.fetch(game);
-            const ataInfo = await getAccount(connection, userAta2.address);
-
-            const tx = await program.methods
-                .exitGame()
-                .accountsStrict({
-                    signer: user2.publicKey,
-                    profile: userProfile2,
-                    game: game,
-                    gameVault: gameVault,
-                    stakeMint: WSOL,
-                    userAta: userAta2.address,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    systemProgram: SystemProgram.programId,
-                })
-                .signers([user2])
-                .rpc();
-            console.log("Exit transaction: ", tx);
+            try {
+                const tx = await program.methods
+                    .exitGame()
+                    .accountsStrict({
+                        signer: user2.publicKey,
+                        profile: userProfile2,
+                        game: game,
+                        gameVault: gameVault,
+                        stakeMint: WSOL,
+                        userAta: userAta2.address,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([user2])
+                    .rpc();
+                console.log("Exit transaction: ", tx);
+            } catch (error) {
+                console.error("Exit transaction failed:", error);
+                throw error;
+            }
 
             gameAccount = await program.account.game.fetch(game);
             const gameVaultInfo = await getAccount(connection, gameVault);
@@ -545,27 +565,32 @@ describe("Degen Decks", () => {
             let ataInfo = await getAccount(connection, userAta2.address);
             const ataBalance = Number(ataInfo.amount);
 
-            const tx = await program.methods
-                .joinGame()
-                .accountsStrict({
-                    signer: user2.publicKey,
-                    profile: userProfile2,
-                    game: game,
-                    gameVault: gameVault,
-                    stakeMint: WSOL,
-                    userAta: userAta2.address,
-                    config: config,
-                    oracleQueue: new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh"),
-                    programIdentity: findPDA([Buffer.from("identity", "utf-8")])[0],
-                    vrfProgram: new PublicKey("Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"),
-                    slotHashes: new PublicKey("SysvarS1otHashes111111111111111111111111111"),
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    systemProgram: SystemProgram.programId,
-                })
-                .signers([user2])
-                .rpc();
-            console.log("Join transaction: ", tx);
+            try {
+                const tx = await program.methods
+                    .joinGame()
+                    .accountsStrict({
+                        signer: user2.publicKey,
+                        profile: userProfile2,
+                        game: game,
+                        gameVault: gameVault,
+                        stakeMint: WSOL,
+                        userAta: userAta2.address,
+                        config: config,
+                        oracleQueue: new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh"),
+                        programIdentity: findPDA([Buffer.from("identity", "utf-8")])[0],
+                        vrfProgram: new PublicKey("Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"),
+                        slotHashes: new PublicKey("SysvarS1otHashes111111111111111111111111111"),
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([user2])
+                    .rpc();
+                console.log("Join transaction: ", tx);
+            } catch (error) {
+                console.error("Join game failed:", error);
+                throw error;
+            }
 
             gameAccount = await program.account.game.fetch(game);
             ataInfo = await getAccount(connection, userAta2.address);
@@ -587,27 +612,32 @@ describe("Degen Decks", () => {
             let ataInfo = await getAccount(connection, userAta3.address);
             const ataBalance = Number(ataInfo.amount);
 
-            const tx = await program.methods
-                .joinGame()
-                .accountsStrict({
-                    signer: user3.publicKey,
-                    profile: userProfile3,
-                    game: game,
-                    gameVault: gameVault,
-                    stakeMint: WSOL,
-                    userAta: userAta3.address,
-                    config: config,
-                    oracleQueue: new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh"),
-                    programIdentity: findPDA([Buffer.from("identity", "utf-8")])[0],
-                    vrfProgram: new PublicKey("Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"),
-                    slotHashes: new PublicKey("SysvarS1otHashes111111111111111111111111111"),
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    systemProgram: SystemProgram.programId,
-                })
-                .signers([user3])
-                .rpc();
-            console.log("Join transaction: ", tx);
+            try {
+                const tx = await program.methods
+                    .joinGame()
+                    .accountsStrict({
+                        signer: user3.publicKey,
+                        profile: userProfile3,
+                        game: game,
+                        gameVault: gameVault,
+                        stakeMint: WSOL,
+                        userAta: userAta3.address,
+                        config: config,
+                        oracleQueue: new PublicKey("Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh"),
+                        programIdentity: findPDA([Buffer.from("identity", "utf-8")])[0],
+                        vrfProgram: new PublicKey("Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"),
+                        slotHashes: new PublicKey("SysvarS1otHashes111111111111111111111111111"),
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([user3])
+                    .rpc();
+                console.log("Join transaction: ", tx);
+            } catch (error) {
+                console.error("Join game failed:", error);
+                throw error;
+            }
 
             // wait for VRF
             await new Promise((resolve) => setTimeout(resolve, 500));
@@ -630,11 +660,31 @@ describe("Degen Decks", () => {
 
     describe("> Full Game Play", () => {
         it("Should delegate game and play full game", async () => {
+            // Wait for previous test's blockchain state to propagate
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            // Verify we have the correct game state (3 players, game started)
+            let initialGameState = await getCurrentGameState();
+            if (!initialGameState || initialGameState.players.length !== 3 || !initialGameState.started) {
+                throw new Error(`Invalid game state: players=${initialGameState?.players.length}, started=${initialGameState?.started}`);
+            }
 
             async function playOneMove(forceDrawIfNoCard = false, firstMove: boolean = true) {
-                const gameAccount = await getCurrentGameStateER() || await getCurrentGameState();
+                const regularState = await getCurrentGameState();
+                const gameAccount = regularState?.delegated
+                    ? (await getCurrentGameStateER() || regularState)
+                    : regularState;
+
+                if (!gameAccount) {
+                    throw new Error("Failed to fetch game account");
+                }
+
                 const currentPlayerIndex = gameAccount.playerTurn - 1;
                 const currentPlayer = gameAccount.players[currentPlayerIndex];
+
+                if (!currentPlayer) {
+                    throw new Error(`No player at index ${currentPlayerIndex}. PlayerTurn: ${gameAccount.playerTurn}, Players: ${gameAccount.players.length}`);
+                }
                 const { signer, profile, keypair } = getPlayerCredentials(currentPlayer.owner);
 
                 const { card: validCard, shapeRequested } = findValidMove(
@@ -659,6 +709,7 @@ describe("Degen Decks", () => {
                     program.idl,
                     providerEphemeralRollup
                 );
+
 
                 try {
                     if (validCard && !forceDrawIfNoCard) {
@@ -699,10 +750,9 @@ describe("Degen Decks", () => {
                         }
 
                         console.log(
-                            `${
-                                shapeRequested
-                                    ? currentPlayer.username + " needs " + cards[shapeRequested - 1]
-                                    : currentPlayer.username + " played " + validCard.cardNumber + " " + cards[validCard.id - 1]
+                            `${shapeRequested
+                                ? currentPlayer.username + " needs " + cards[shapeRequested - 1]
+                                : currentPlayer.username + " played " + validCard.cardNumber + " " + cards[validCard.id - 1]
                             })`
                         );
                     } else {
@@ -786,6 +836,18 @@ describe("Degen Decks", () => {
                 if (updatedGame.ended) {
                     winner = updatedGame.winner;
                     console.log("GAME ENDED — Winner:", updatedGame.winner.toBase58());
+                    // commit and undelegate
+                    const tx = await programEphemeralRollup
+                        .methods
+                        .commitGame()
+                        .accountsStrict({
+                            signer,
+                            game: game,
+                            magicContext: MAGIC_CONTEXT_ID,
+                            magicProgram: MAGIC_PROGRAM_ID
+                        })
+                        .rpc();
+                    console.log("Commit game transaction:", tx);
                     return;
                 }
                 if (firstMove) {
@@ -798,26 +860,10 @@ describe("Degen Decks", () => {
         });
     });
 
-
-    describe("> Undelegate and Commit Game State", () => {
-        it("Should commit game state", async () => {
-            await programEphemeralRollup
-                .methods
-                .commitGame()
-                .accountsStrict({
-                    signer: user1.publicKey,
-                    game: game,
-                    magicContext: MAGIC_CONTEXT_ID,
-                    magicProgram: MAGIC_PROGRAM_ID
-                })
-                .rpc();
-        })
-    })
-
     describe("> Winner Claims", () => {
         it("Winner should be able to claim prize from vault", async () => {
             // wait for undelegation
-            await new Promise((resolve) => setTimeout(() => resolve(true), 10000))
+            await new Promise((resolve) => setTimeout(() => resolve(true), 3000))
 
             if (winner) {
                 const gameAccount = await getCurrentGameStateER();
@@ -859,7 +905,7 @@ describe("Degen Decks", () => {
                     })
                     .rpc();
                 console.log("claim tx", "https://solscan.io/tx/" + tx + "?cluster=devnet");
-            }else{
+            } else {
                 console.log("No winner");
             }
         })
