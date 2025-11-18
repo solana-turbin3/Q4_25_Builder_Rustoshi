@@ -14,9 +14,6 @@ import {
     MAGIC_PROGRAM_ID
 
 } from "@magicblock-labs/ephemeral-rollups-sdk";
-import {
-    getClosestValidator,
-} from "magic-router-sdk"
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import "dotenv/config"
 
@@ -24,6 +21,7 @@ describe("Degen Decks", () => {
     const connection = new Connection(`${process.env.SOLANA_RPC_URL}`, {
         commitment: "confirmed"
     });
+
     const provider = new anchor.AnchorProvider(
         connection,
         anchor.Wallet.local()
@@ -270,7 +268,9 @@ describe("Degen Decks", () => {
     const noPlayers = 3;
     const waitTime = new BN(60);
     let winner: PublicKey;
-    let validatorKey: PublicKey;
+    // Validator is optional - ER will auto-select if null
+    const validatorKey = null;
+    const commit_frequency = 30000;
 
 
     before(async () => {
@@ -285,7 +285,7 @@ describe("Degen Decks", () => {
         // funder players WSOL accounts with 0.5 SOL
         await sendSOL(user1.publicKey, user2.publicKey, 0.05 * LAMPORTS_PER_SOL, user1.payer);
         await sendSOL(user1.publicKey, user3.publicKey, 0.05 * LAMPORTS_PER_SOL, user1.payer);
-        
+
         // Derive PDAs
         config = findPDA([Buffer.from(CONFIG_SEED, "utf-8")])[0];
         userAta1 = await getOrCreateAssociatedTokenAccount(
@@ -728,7 +728,10 @@ describe("Degen Decks", () => {
                         // undelegated
                         else {
                             let tx = await program.methods
-                                .playCardAndDelegate(validCard, shapeRequested ?? null)
+                                .playCardAndDelegate(validCard, shapeRequested ?? null, {
+                                    commitFrequencyMs: commit_frequency,
+                                    validator: validatorKey,
+                                })
                                 .accountsStrict({
                                     signer,
                                     profile,
@@ -768,7 +771,10 @@ describe("Degen Decks", () => {
                                 .rpc();
                         } else {
                             let tx = await program.methods
-                                .drawFromPileAndDelegate()
+                                .drawFromPileAndDelegate({
+                                    commitFrequencyMs: commit_frequency,
+                                    validator: validatorKey,
+                                })
                                 .accountsStrict({
                                     signer,
                                     profile,

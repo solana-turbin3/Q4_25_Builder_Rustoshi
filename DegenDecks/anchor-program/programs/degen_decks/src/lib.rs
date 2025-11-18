@@ -10,8 +10,10 @@ pub mod utils;
 
 use crate::state::Card;
 pub use instructions::*;
+pub use state::DelegateParams;
 
 declare_id!("Dege4SWaJoarqG9qh3wWhKwP84XaCru2FuNCEkAUQY6U");
+
 
 #[ephemeral]
 #[program]
@@ -68,24 +70,25 @@ pub mod degen_decks {
         ctx: Context<PlayCardAndDelegate>,
         card: Card,
         shape_requested: Option<u8>,
+        params: DelegateParams
     ) -> Result<()> {
-        ctx.accounts.play_card_and_delegate(card, shape_requested)
+        ctx.accounts.play_card_and_delegate(card, shape_requested, params)
     }
 
     pub fn draw_from_pile(ctx: Context<DrawFromPile>) -> Result<()> {
         ctx.accounts.draw_from_pile()
     }
 
-    pub fn draw_from_pile_and_delegate(ctx: Context<DrawFromPileAndDelegate>) -> Result<()> {
-        ctx.accounts.draw_from_pile_and_delegate()
+    pub fn draw_from_pile_and_delegate(ctx: Context<DrawFromPileAndDelegate>, params: DelegateParams) -> Result<()> {
+        ctx.accounts.draw_from_pile_and_delegate(params)
     }
 
     pub fn penalize_opponent(ctx: Context<PenalizeOpponent>) -> Result<()> {
         ctx.accounts.penalize_opponent()
     }
 
-    pub fn penalize_opponent_and_delegate(ctx: Context<PenalizeOpponentAndDelegate>) -> Result<()> {
-        ctx.accounts.penalize_opponent_and_delegate()
+    pub fn penalize_opponent_and_delegate(ctx: Context<PenalizeOpponentAndDelegate>, params: DelegateParams) -> Result<()> {
+        ctx.accounts.penalize_opponent_and_delegate(params)
     }
 
     pub fn claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {

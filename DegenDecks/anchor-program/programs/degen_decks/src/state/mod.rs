@@ -4,6 +4,9 @@ pub use config::*;
 pub mod card;
 pub use card::*;
 
+pub mod delegate_params;
+pub use delegate_params::*;
+
 pub mod game;
 pub use game::*;
 

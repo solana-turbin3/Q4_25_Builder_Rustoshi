@@ -10,8 +10,7 @@ use crate::{
     }, 
     errors::GameErrors, 
     state::{
-        Game, 
-        Profile
+        DelegateParams, Game, Profile
     }
 };
 
@@ -42,7 +41,7 @@ pub struct DrawFromPileAndDelegate<'info> {
 }
 
 impl<'info> DrawFromPileAndDelegate<'info> {
-    pub fn draw_from_pile_and_delegate(&mut self) -> Result<()> {
+    pub fn draw_from_pile_and_delegate(&mut self, params: DelegateParams) -> Result<()> {
         let player = self.game.players.iter().find(|p| p.owner == self.signer.key()).ok_or(GameErrors::PlayerNotFound)?;
         
         require!(player.player_index == Some(self.game.player_turn), GameErrors::NotYourTurn);
@@ -56,6 +55,10 @@ impl<'info> DrawFromPileAndDelegate<'info> {
         if !self.game.delegated && !self.game.ended {
             self.game.delegated = true;
             // delegate to ER
+            let config = DelegateConfig {
+                commit_frequency_ms: params.commit_frequency_ms,
+                validator: params.validator,
+            };
             self.game.exit(&crate::ID)?;
             self.delegate_game(
                 &self.signer,
@@ -64,9 +67,7 @@ impl<'info> DrawFromPileAndDelegate<'info> {
                     self.game.seed.to_le_bytes().as_ref(), 
                     self.game.owner.as_ref()
                 ],
-                DelegateConfig {
-                    ..Default::default()
-                }
+                config
             )?;
         }
 
